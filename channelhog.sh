@@ -14,7 +14,11 @@
 ############################################################################################################
 
 
+# Ntfy options
+topic="RouterAlerts"
+token="TOKENGOESHERE"
 
+#Discord Options
 botname="ChannelHogBOT"
 avatar="https://i.imgur.com/jZk12SL.png"
 channelhogcfg="/jffs/addons/channelhog/channelhog.cfg"
@@ -206,41 +210,31 @@ case "$1" in
 
 		if [ "$restart5ghz1" = "true" ] || [ "$restart5ghz2" = "true" ]; then
 			if [ "$enablediscord" = "true" ]; then
-				curl -s -H "Content-Type: application/json" \
-				-X POST \
-				-d "$(cat <<EOF
-				{
-					"username": "$botname",
-					"avatar_url": "$avatar",
-					"content": "Channel Width Error Detected - Restarting 5GHz Radio @everyone",
-					"embeds": [{
-						"title": "$(nvram get model)",
-						"color": 15749200,
-						"url": "https://$(nvram get lan_ipaddr):$(nvram get https_lanport)",
-						"fields": [{
-								"name": "Current ${restartradio} Channel Width",
-								"value": "$currentbandwidth",
-								"inline": true
-							},
-							{
-								"name": "Target ${restartradio} Channel Width",
-								"value": "$targetbandwidth",
-								"inline": true
-							},
-							{
-								"name": "Uptime",
-								"value": "$(uptime | awk -F'( |,|:)+' '{if ($7=="min") m=$6; else {if ($7~/^day/) {d=$6;h=$8;m=$9} else {h=$6;m=$7}}} {print d+0,"days,",h+0,"hours,",m+0,"minutes."}')",
-								"inline": false
-							}
-						],
-						"footer": {
-							"text": "$(date)",
-							"icon_url": "$avatar"
-						}
-					}]
-				}
-EOF
-							)" "$webhookurl"
+				# Define sound options
+				sounds=("fanfare" "ping" "magic" "tugboat" "alarm" "chime" "boing" "knock")
+				# Pick a random one
+				ntfy_sound=${sounds[$RANDOM % ${#sounds[@]}]}
+				
+				curl -s -X POST "https://ntfy.jimmyc.net/$topic" \
+				     -H "Title: Channel Width Error Detected - Restarting 5GHz Radio" \
+				     -H "Tags: warning,wifi,rotating_light" \
+				     -H "Authorization: Bearer $token" \
+				     -H "X-Message-TTL: 60m" \
+				     -H "X-Tags: sound:$ntfy_sound" \
+				     -d "$(cat <<EOF
+				🚨 Channel Width Error Detected - Restarting 5GHz Radio
+				
+				🔧 Model: $(nvram get model)
+				🌐 URL: https://$(nvram get lan_ipaddr):$(nvram get https_lanport)
+				
+				📡 Current ${restartradio} Channel ${currentChan} @ ${currentbandwidth}
+				🎯 Target ${restartradio} Channel ${targetChan} @ ${targetbandwidth}
+				
+				⏱️ Uptime: $(uptime | awk -F'( |,|:)+' '{if ($7=="min") m=$6; else {if ($7~/^day/) {d=$6;h=$8;m=$9} else {h=$6;m=$7}}} {print d+0,"days,",h+0,"hours,",m+0,"minutes."}')
+				
+				🕒 $(date)
+				EOF
+				)"
 			fi
 			logger -st ChannelHog "[*] $currentbandwidth Channel Width Detected - Restarting ${restartradio} Radio"
 			if [ "$restart5ghz1" = "true" ]; then
